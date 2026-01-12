@@ -39,10 +39,8 @@ class _CheckoutDemoPageState extends State<CheckoutDemoPage> {
     super.initState();
     _configureCheckout();
 
-    // Set a sample checkout URL for testing
-    _urlController.text = 'https://your-store.myshopify.com/checkouts/sample';
-  }
-
+    // Set your Shopify store checkout URL
+    _urlController.text = 'https://your-store.myshopify.com/checkouts/sample'; }
   @override
   void dispose() {
     _urlController.dispose();
@@ -92,6 +90,9 @@ class _CheckoutDemoPageState extends State<CheckoutDemoPage> {
   /// Present the checkout sheet.
   Future<void> _presentCheckout() async {
     final url = _urlController.text.trim();
+    debugPrint('[Flutter] _presentCheckout called');
+    debugPrint('[Flutter] URL: $url');
+    
     if (url.isEmpty) {
       _showSnackBar('Please enter a checkout URL');
       return;
@@ -102,11 +103,14 @@ class _CheckoutDemoPageState extends State<CheckoutDemoPage> {
       _statusMessage = 'Opening checkout...';
     });
 
+    debugPrint('[Flutter] Calling ShopifyCheckoutSheetKit.present()...');
+    
     try {
       final result = await ShopifyCheckoutSheetKit.present(
         url: url,
         eventHandler: CheckoutEventHandler(
           onCheckoutCompleted: (event) {
+            debugPrint('[Flutter] onCheckoutCompleted received');
             _addEventLog(
                 '✅ Checkout completed: Order ${event.orderDetails.id}');
             if (event.orderDetails.email != null) {
@@ -117,9 +121,11 @@ class _CheckoutDemoPageState extends State<CheckoutDemoPage> {
             }
           },
           onCheckoutCanceled: () {
+            debugPrint('[Flutter] onCheckoutCanceled received');
             _addEventLog('❌ Checkout canceled by user');
           },
           onCheckoutFailed: (error) {
+            debugPrint('[Flutter] onCheckoutFailed received: $error');
             _addEventLog('⚠️ Checkout failed: ${error.message}');
             _addEventLog('   Code: ${error.code.name}');
             _addEventLog('   Recoverable: ${error.isRecoverable}');

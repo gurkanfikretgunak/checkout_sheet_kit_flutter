@@ -124,9 +124,12 @@ public class CheckoutSheetKitFlutterPlugin: NSObject, FlutterPlugin {
     
     /// Presents the checkout sheet.
     private func handlePresent(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        print("[CheckoutSheetKit] handlePresent called")
+        
         guard let args = call.arguments as? [String: Any],
               let urlString = args["url"] as? String,
               let url = URL(string: urlString) else {
+            print("[CheckoutSheetKit] ERROR: Invalid args or URL")
             result(FlutterError(
                 code: "INVALID_ARGS",
                 message: "Valid checkout URL required",
@@ -135,10 +138,29 @@ public class CheckoutSheetKitFlutterPlugin: NSObject, FlutterPlugin {
             return
         }
         
-        // Get the presenting view controller
-        var presentingVC = viewController
+        print("[CheckoutSheetKit] URL: \(urlString)")
+        
+        // Get the presenting view controller using modern API
+        var presentingVC: UIViewController?
+        
+        if #available(iOS 13.0, *) {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
+                presentingVC = window.rootViewController
+                print("[CheckoutSheetKit] Got VC from windowScene")
+            }
+        }
+        
+        // Fallback to stored view controller
+        if presentingVC == nil {
+            presentingVC = viewController
+            print("[CheckoutSheetKit] Using stored viewController")
+        }
+        
+        // Fallback to deprecated API
         if presentingVC == nil {
             presentingVC = UIApplication.shared.windows.first?.rootViewController
+            print("[CheckoutSheetKit] Using deprecated windows API")
         }
         
         // Find the topmost presented view controller
@@ -147,6 +169,7 @@ public class CheckoutSheetKitFlutterPlugin: NSObject, FlutterPlugin {
         }
         
         guard let vc = presentingVC else {
+            print("[CheckoutSheetKit] ERROR: No view controller available")
             result(FlutterError(
                 code: "NO_VIEW_CONTROLLER",
                 message: "No view controller available for presentation",
@@ -155,13 +178,17 @@ public class CheckoutSheetKitFlutterPlugin: NSObject, FlutterPlugin {
             return
         }
         
+        print("[CheckoutSheetKit] Presenting from VC: \(type(of: vc))")
+        
         pendingResult = result
         
+        print("[CheckoutSheetKit] Calling ShopifyCheckoutSheetKit.present()...")
         ShopifyCheckoutSheetKit.present(
             checkout: url,
             from: vc,
             delegate: self
         )
+        print("[CheckoutSheetKit] ShopifyCheckoutSheetKit.present() called")
     }
     
     /// Invalidates any preloaded checkout.
@@ -379,6 +406,190 @@ extension CheckoutSheetKitFlutterPlugin {
         ]
     }
     
+    /// Maps Location to a Flutter-compatible dictionary.
+    private func mapLocation(_ location: Location?) -> [String: Any?]? {
+        guard let location = location else { return nil }
+        return [
+            "hash": location.hash,
+            "host": location.host,
+            "hostname": location.hostname,
+            "href": location.href,
+            "origin": location.origin,
+            "pathname": location.pathname,
+            "port": location.port,
+            "protocol": location.locationProtocol,
+            "search": location.search
+        ]
+    }
+    
+    /// Maps StandardEventData to a Flutter-compatible dictionary.
+    private func mapStandardEventData(_ data: StandardEventData?) -> [String: Any?]? {
+        guard let data = data else { return nil }
+        return [
+            "checkout": mapCheckout(data.checkout)
+        ]
+    }
+    
+    /// Maps Checkout to a Flutter-compatible dictionary.
+    private func mapCheckout(_ checkout: Checkout?) -> [String: Any?]? {
+        guard let checkout = checkout else { return nil }
+        return [
+            "attributes": checkout.attributes?.map { ["key": $0.key, "value": $0.value] },
+            "billingAddress": mapMailingAddress(checkout.billingAddress),
+            "buyerAcceptsEmailMarketing": checkout.buyerAcceptsEmailMarketing,
+            "buyerAcceptsSmsMarketing": checkout.buyerAcceptsSmsMarketing,
+            "currencyCode": checkout.currencyCode,
+            "discountApplications": checkout.discountApplications?.map { mapDiscountApplication($0) },
+            "email": checkout.email,
+            "lineItems": checkout.lineItems?.map { mapCheckoutLineItem($0) },
+            "localization": mapLocalization(checkout.localization),
+            "order": mapOrder(checkout.order),
+            "phone": checkout.phone,
+            "shippingAddress": mapMailingAddress(checkout.shippingAddress),
+            "shippingLine": mapShippingRate(checkout.shippingLine),
+            "subtotalPrice": mapMoneyV2(checkout.subtotalPrice),
+            "token": checkout.token,
+            "totalPrice": mapMoneyV2(checkout.totalPrice),
+            "totalTax": mapMoneyV2(checkout.totalTax),
+            "transactions": checkout.transactions?.map { mapTransaction($0) }
+        ]
+    }
+    
+    /// Maps MailingAddress to a Flutter-compatible dictionary.
+    private func mapMailingAddress(_ address: MailingAddress?) -> [String: Any?]? {
+        guard let address = address else { return nil }
+        return [
+            "address1": address.address1,
+            "address2": address.address2,
+            "city": address.city,
+            "country": address.country,
+            "countryCode": address.countryCode,
+            "firstName": address.firstName,
+            "lastName": address.lastName,
+            "phone": address.phone,
+            "province": address.province,
+            "provinceCode": address.provinceCode,
+            "zip": address.zip
+        ]
+    }
+    
+    /// Maps DiscountApplication to a Flutter-compatible dictionary.
+    private func mapDiscountApplication(_ discount: DiscountApplication?) -> [String: Any?]? {
+        guard let discount = discount else { return nil }
+        return [
+            "allocationMethod": discount.allocationMethod,
+            "targetSelection": discount.targetSelection,
+            "targetType": discount.targetType,
+            "title": discount.title,
+            "type": discount.type,
+            "value": mapValue(discount.value)
+        ]
+    }
+    
+    /// Maps Value to a Flutter-compatible dictionary.
+    private func mapValue(_ value: Value?) -> [String: Any?]? {
+        guard let value = value else { return nil }
+        return [
+            "amount": value.amount,
+            "currencyCode": value.currencyCode,
+            "percentage": value.percentage
+        ]
+    }
+    
+    /// Maps CheckoutLineItem to a Flutter-compatible dictionary.
+    private func mapCheckoutLineItem(_ item: CheckoutLineItem?) -> [String: Any?]? {
+        guard let item = item else { return nil }
+        return [
+            "discountAllocations": item.discountAllocations?.map { mapDiscountAllocation($0) },
+            "id": item.id,
+            "quantity": item.quantity,
+            "title": item.title,
+            "variant": mapProductVariant(item.variant)
+        ]
+    }
+    
+    /// Maps DiscountAllocation to a Flutter-compatible dictionary.
+    private func mapDiscountAllocation(_ allocation: DiscountAllocation?) -> [String: Any?]? {
+        guard let allocation = allocation else { return nil }
+        return [
+            "amount": mapMoneyV2(allocation.amount),
+            "discountApplication": mapDiscountApplication(allocation.discountApplication)
+        ]
+    }
+    
+    /// Maps ProductVariant to a Flutter-compatible dictionary.
+    private func mapProductVariant(_ variant: ProductVariant?) -> [String: Any?]? {
+        guard let variant = variant else { return nil }
+        return [
+            "id": variant.id,
+            "image": variant.image.map { ["src": $0.src] as [String: Any?] },
+            "price": mapMoneyV2(variant.price),
+            "product": variant.product.map { [
+                "id": $0.id,
+                "title": $0.title,
+                "type": $0.type,
+                "untranslatedTitle": $0.untranslatedTitle,
+                "url": $0.url,
+                "vendor": $0.vendor
+            ] as [String: Any?] },
+            "sku": variant.sku,
+            "title": variant.title,
+            "untranslatedTitle": variant.untranslatedTitle
+        ]
+    }
+    
+    /// Maps Localization to a Flutter-compatible dictionary.
+    private func mapLocalization(_ localization: Localization?) -> [String: Any?]? {
+        guard let localization = localization else { return nil }
+        return [
+            "country": localization.country.map { ["isoCode": $0.isoCode] as [String: Any?] },
+            "language": localization.language.map { ["isoCode": $0.isoCode] as [String: Any?] },
+            "market": localization.market.map { ["id": $0.id, "handle": $0.handle] as [String: Any?] }
+        ]
+    }
+    
+    /// Maps Order to a Flutter-compatible dictionary.
+    private func mapOrder(_ order: Order?) -> [String: Any?]? {
+        guard let order = order else { return nil }
+        return [
+            "id": order.id,
+            "customer": order.customer.map { [
+                "id": $0.id,
+                "isFirstOrder": $0.isFirstOrder
+            ] as [String: Any?] }
+        ]
+    }
+    
+    /// Maps ShippingRate to a Flutter-compatible dictionary.
+    private func mapShippingRate(_ rate: ShippingRate?) -> [String: Any?]? {
+        guard let rate = rate else { return nil }
+        return [
+            "price": mapMoneyV2(rate.price)
+        ]
+    }
+    
+    /// Maps MoneyV2 to a Flutter-compatible dictionary.
+    private func mapMoneyV2(_ money: MoneyV2?) -> [String: Any?]? {
+        guard let money = money else { return nil }
+        return [
+            "amount": money.amount,
+            "currencyCode": money.currencyCode
+        ]
+    }
+    
+    /// Maps Transaction to a Flutter-compatible dictionary.
+    private func mapTransaction(_ transaction: Transaction?) -> [String: Any?]? {
+        guard let transaction = transaction else { return nil }
+        return [
+            "amount": mapMoneyV2(transaction.amount),
+            "gateway": transaction.gateway,
+            "paymentMethod": transaction.paymentMethod.map { [
+                "name": $0.name,
+                "type": $0.type
+            ] as [String: Any?] }
+        ]
+    }
+    
     /// Maps PixelEvent to a Flutter-compatible dictionary.
     private func mapPixelEvent(_ event: PixelEvent) -> [String: Any?] {
         switch event {
@@ -392,7 +603,7 @@ extension CheckoutSheetKitFlutterPlugin {
                     [
                         "document": ctx.document.map { doc in
                             [
-                                "location": doc.location,
+                                "location": self.mapLocation(doc.location),
                                 "referrer": doc.referrer,
                                 "characterSet": doc.characterSet,
                                 "title": doc.title
@@ -410,6 +621,7 @@ extension CheckoutSheetKitFlutterPlugin {
                             [
                                 "innerHeight": win.innerHeight,
                                 "innerWidth": win.innerWidth,
+                                "location": self.mapLocation(win.location),
                                 "origin": win.origin,
                                 "outerHeight": win.outerHeight,
                                 "outerWidth": win.outerWidth,
@@ -423,7 +635,7 @@ extension CheckoutSheetKitFlutterPlugin {
                         }
                     ] as [String: Any?]
                 },
-                "data": standardEvent.data
+                "data": self.mapStandardEventData(standardEvent.data)
             ]
         case .customEvent(let customEvent):
             return [
