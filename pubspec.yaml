@@ -1,6 +1,6 @@
 name: checkout_sheet_kit_flutter
 description: "Flutter plugin for Shopify Checkout Sheet Kit - provides seamless checkout experiences using Shopify's native SDKs for Android and iOS."
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/Shopify/checkout-sheet-kit-flutter
 repository: https://github.com/Shopify/checkout-sheet-kit-flutter
 issue_tracker: https://github.com/Shopify/checkout-sheet-kit-flutter/issues

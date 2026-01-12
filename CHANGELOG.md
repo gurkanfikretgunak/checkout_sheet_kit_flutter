@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.0.2
+
+### Improvements
+
+- Improved iOS view controller detection using modern Scene-based API
+- Added debug logging for easier troubleshooting
+- Fixed type mapping for all Shopify SDK data structures
+- Better error handling and recovery
+
+### Bug Fixes
+
+- Fixed `DiscountValue` type mapping (now uses `Value`)
+- Fixed `Location` object serialization
+- Fixed `StandardEventData` serialization for web pixel events
+- Fixed expression complexity in Swift plugin
+
+---
+
 ## 0.0.1
 
 Initial release of Shopify Checkout Sheet Kit for Flutter.

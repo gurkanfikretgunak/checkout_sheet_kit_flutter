@@ -73,7 +73,7 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  checkout_sheet_kit_flutter: ^0.0.1
+  checkout_sheet_kit_flutter: ^0.0.2
 ```
 
 Then run:
