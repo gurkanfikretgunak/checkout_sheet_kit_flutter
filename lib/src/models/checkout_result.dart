@@ -211,11 +211,33 @@ class DeliveryInfo {
   const DeliveryInfo({this.method, this.details});
 
   /// Creates from a map.
+  ///
+  /// Handles cases where Shopify returns method/details as Maps
+  /// instead of Strings (e.g., {additionalInfo: null, name: null}).
   factory DeliveryInfo.fromMap(Map<String, dynamic> map) {
     return DeliveryInfo(
-      method: map['method'] as String?,
-      details: map['details'] as String?,
+      method: _safeStringFromDynamic(map['method']),
+      details: _safeStringFromDynamic(map['details']),
     );
+  }
+
+  /// Safely converts a dynamic value to String.
+  /// Handles: String, Map, null, and other types.
+  static String? _safeStringFromDynamic(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    if (value is Map) {
+      // Extract meaningful info from Map responses
+      if (value.containsKey('title')) {
+        return value['title']?.toString();
+      }
+      if (value.containsKey('name')) {
+        return value['name']?.toString();
+      }
+      // Fallback: convert entire map to string representation
+      return value.toString();
+    }
+    return value.toString();
   }
 
   /// Converts to map.
@@ -237,9 +259,15 @@ class PaymentMethod {
   const PaymentMethod({required this.type, this.details});
 
   /// Creates from a map.
+  ///
+  /// Handles cases where `type` might not be a String.
   factory PaymentMethod.fromMap(Map<String, dynamic> map) {
+    final typeValue = map['type'];
+    final type =
+        typeValue is String ? typeValue : typeValue?.toString() ?? 'unknown';
+
     return PaymentMethod(
-      type: map['type'] as String,
+      type: type,
       details: map['details'] != null
           ? Map<String, dynamic>.from(map['details'] as Map)
           : null,
@@ -356,27 +384,58 @@ class CartLine {
 }
 
 /// Cart line item image.
+///
+/// Note: Shopify returns images in multiple sizes (sm, md, lg) rather than
+/// a single 'url' field. This class handles both formats for compatibility.
 class CartLineImage {
-  /// Image URL.
-  final String url;
+  /// Image URL (legacy format - may be null if Shopify returns size variants).
+  final String? url;
+
+  /// Small image URL (Shopify's actual format).
+  final String? sm;
+
+  /// Medium image URL (Shopify's actual format).
+  final String? md;
+
+  /// Large image URL (Shopify's actual format).
+  final String? lg;
 
   /// Alt text.
   final String? altText;
 
   /// Creates a cart line image.
-  const CartLineImage({required this.url, this.altText});
+  const CartLineImage({
+    this.url,
+    this.sm,
+    this.md,
+    this.lg,
+    this.altText,
+  });
+
+  /// Gets the best available image URL (prefers larger sizes, falls back to url).
+  String? get bestUrl => lg ?? md ?? sm ?? url;
 
   /// Creates from a map.
+  ///
+  /// Handles both formats:
+  /// - Legacy: {url: "...", altText: "..."}
+  /// - Shopify actual: {sm: "...", md: "...", lg: "...", altText: null}
   factory CartLineImage.fromMap(Map<String, dynamic> map) {
     return CartLineImage(
-      url: map['url'] as String,
+      url: map['url'] as String?,
+      sm: map['sm'] as String?,
+      md: map['md'] as String?,
+      lg: map['lg'] as String?,
       altText: map['altText'] as String?,
     );
   }
 
   /// Converts to map.
   Map<String, dynamic> toMap() => {
-        'url': url,
+        if (url != null) 'url': url,
+        if (sm != null) 'sm': sm,
+        if (md != null) 'md': md,
+        if (lg != null) 'lg': lg,
         if (altText != null) 'altText': altText,
       };
 }
