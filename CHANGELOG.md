@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.0.3
+
+### Fixed
+- `DeliveryInfo.fromMap()` now handles cases where Shopify returns `method` and `details` as Maps instead of Strings
+- `CartLineImage.fromMap()` now handles Shopify's actual image format with `sm`, `md`, `lg` size variants instead of just `url`
+- `PaymentMethod.fromMap()` now handles non-String `type` values defensively
+
+### Added
+- `CartLineImage.bestUrl` getter that returns the best available image URL (prefers larger sizes)
+- `CartLineImage.sm`, `CartLineImage.md`, `CartLineImage.lg` fields for Shopify's size variant format
+
+---
+
 ## 0.0.2
 
 ### Improvements
